@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Depósito Versátil — Inventario</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <h2>📦 Depósito Versátil</h2>
+    <div class="navbar-right">
+      <span id="nombre-usuario"></span>
+      <a href="/logout" class="btn btn-secondary btn-sm">Salir</a>
+    </div>
+  </nav>
+
+  <div class="container">
+
+    <!-- STATS -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="numero" id="stat-total">0</div>
+        <div class="label">Productos en total</div>
+      </div>
+      <div class="stat-card alerta">
+        <div class="numero" id="stat-bajo">0</div>
+        <div class="label">Stock bajo</div>
+      </div>
+      <div class="stat-card">
+        <div class="numero" id="stat-categorias">0</div>
+        <div class="label">Categorías</div>
+      </div>
+    </div>
+
+    <!-- TOOLBAR -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <input type="text" id="buscar" placeholder="🔍 Buscar producto..." />
+        <select id="filtro-categoria">
+          <option value="">Todas las categorías</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="abrirModalNuevo()">+ Nuevo producto</button>
+    </div>
+
+    <!-- ALERTA STOCK BAJO -->
+    <div id="alerta-stock" class="alert alert-warning" style="display:none; margin-bottom:1rem;"></div>
+
+    <!-- GRID DE PRODUCTOS -->
+    <div class="productos-grid" id="productos-grid"></div>
+
+  </div>
+
+  <!-- MODAL: NUEVO / EDITAR PRODUCTO -->
+  <div class="modal-overlay" id="modal-producto" style="display:none">
+    <div class="modal">
+      <h2 id="modal-titulo">Nuevo Producto</h2>
+      <form id="form-producto" enctype="multipart/form-data">
+        <input type="hidden" id="producto-id" />
+        <div class="form-group">
+          <label>Título *</label>
+          <input type="text" id="titulo" required />
+        </div>
+        <div class="form-group">
+          <label>Categoría</label>
+          <input type="text" id="categoria" placeholder="Ej: Electrónica, Mobiliario..." />
+        </div>
+        <div class="form-group">
+          <label>Descripción</label>
+          <textarea id="descripcion" placeholder="Descripción del producto..."></textarea>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem">
+          <div class="form-group">
+            <label>Cantidad inicial</label>
+            <input type="number" id="cantidad" min="0" value="0" />
+          </div>
+          <div class="form-group">
+            <label>Stock mínimo</label>
+            <input type="number" id="stock-minimo" min="0" value="5" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Imagen</label>
+          <input type="file" id="imagen" accept="image/*" />
+        </div>
+        <div id="imagen-actual" style="display:none; margin-top:0.5rem">
+          <img id="preview-imagen" style="width:100%; max-height:150px; object-fit:cover; border-radius:8px" />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="cerrarModal('modal-producto')">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: MOVIMIENTO DE STOCK -->
+  <div class="modal-overlay" id="modal-movimiento" style="display:none">
+    <div class="modal">
+      <h2 id="mov-titulo">Registrar movimiento</h2>
+      <input type="hidden" id="mov-producto-id" />
+      <div class="form-group">
+        <label>Tipo</label>
+        <select id="mov-tipo">
+          <option value="entrada">📥 Entrada (agregar stock)</option>
+          <option value="salida">📤 Salida (retirar stock)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Cantidad</label>
+        <input type="number" id="mov-cantidad" min="1" value="1" />
+      </div>
+      <div class="form-group">
+        <label>Nota (opcional)</label>
+        <input type="text" id="mov-nota" placeholder="Ej: Entrega para evento, Compra proveedor..." />
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="cerrarModal('modal-movimiento')">Cancelar</button>
+        <button class="btn btn-success" onclick="guardarMovimiento()">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: HISTORIAL -->
+  <div class="modal-overlay" id="modal-historial" style="display:none">
+    <div class="modal">
+      <h2 id="hist-titulo">Historial</h2>
+      <ul class="historial-lista" id="historial-lista"></ul>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="cerrarModal('modal-historial')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let productos = [];
+    let usuarioRol = '';
+
+    // Cargar datos iniciales
+    async function cargarProductos() {
+      const buscar = document.getElementById('buscar').value;
+      const categoria = document.getElementById('filtro-categoria').value;
+
+      const params = new URLSearchParams();
+      if (buscar) params.append('buscar', buscar);
+      if (categoria) params.append('categoria', categoria);
+
+      const res = await fetch('/api/productos?' + params);
+      productos = await res.json();
+
+      renderProductos();
+      actualizarStats();
+    }
+
+    function renderProductos() {
+      const grid = document.getElementById('productos-grid');
+      if (productos.length === 0) {
+        grid.innerHTML = '<p style="color:#888; grid-column:1/-1; text-align:center; padding:3rem">No hay productos todavía. ¡Agregá el primero!</p>';
+        return;
+      }
+
+      grid.innerHTML = productos.map(p => `
+        <div class="producto-card">
+          ${p.imagen
+            ? `<img src="/uploads/${p.imagen}" alt="${p.titulo}" />`
+            : `<div class="no-img">📦</div>`}
+          <div class="producto-info">
+            <div class="categoria">${p.categoria || 'Sin categoría'}</div>
+            <h3>${p.titulo}</h3>
+            <p class="descripcion">${p.descripcion || ''}</p>
+            <span class="stock-badge ${p.cantidad <= p.stock_minimo ? 'stock-bajo' : 'stock-ok'}">
+              ${p.cantidad <= p.stock_minimo ? '⚠️' : '✅'} Stock: ${p.cantidad}
+            </span>
+            <div class="producto-actions">
+              <button class="btn btn-success btn-sm" onclick="abrirModalMovimiento(${p.id}, '${p.titulo}')">📦 Stock</button>
+              <button class="btn btn-warning btn-sm" onclick="abrirModalEditar(${p.id})">✏️</button>
+              <button class="btn btn-secondary btn-sm" onclick="verHistorial(${p.id}, '${p.titulo}')">📋</button>
+              <button class="btn btn-danger btn-sm" onclick="eliminarProducto(${p.id}, '${p.titulo}')">🗑️</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function actualizarStats() {
+      const stockBajo = productos.filter(p => p.cantidad <= p.stock_minimo);
+      const categorias = [...new Set(productos.map(p => p.categoria).filter(Boolean))];
+
+      document.getElementById('stat-total').textContent = productos.length;
+      document.getElementById('stat-bajo').textContent = stockBajo.length;
+      document.getElementById('stat-categorias').textContent = categorias.length;
+
+      const alerta = document.getElementById('alerta-stock');
+      if (stockBajo.length > 0) {
+        alerta.style.display = 'block';
+        alerta.textContent = `⚠️ ${stockBajo.length} producto(s) con stock bajo: ${stockBajo.map(p => p.titulo).join(', ')}`;
+      } else {
+        alerta.style.display = 'none';
+      }
+    }
+
+    async function cargarCategorias() {
+      const res = await fetch('/api/productos');
+      const todos = await res.json();
+      const categorias = [...new Set(todos.map(p => p.categoria).filter(Boolean))];
+      const select = document.getElementById('filtro-categoria');
+      const actual = select.value;
+      select.innerHTML = '<option value="">Todas las categorías</option>';
+      categorias.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        if (c === actual) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+
+    // MODAL NUEVO
+    function abrirModalNuevo() {
+      document.getElementById('modal-titulo').textContent = 'Nuevo Producto';
+      document.getElementById('form-producto').reset();
+      document.getElementById('producto-id').value = '';
+      document.getElementById('imagen-actual').style.display = 'none';
+      document.getElementById('modal-producto').style.display = 'flex';
+    }
+
+    // MODAL EDITAR
+    async function abrirModalEditar(id) {
+      const res = await fetch('/api/productos/' + id);
+      const p = await res.json();
+
+      document.getElementById('modal-titulo').textContent = 'Editar Producto';
+      document.getElementById('producto-id').value = p.id;
+      document.getElementById('titulo').value = p.titulo;
+      document.getElementById('categoria').value = p.categoria || '';
+      document.getElementById('descripcion').value = p.descripcion || '';
+      document.getElementById('cantidad').value = p.cantidad;
+      document.getElementById('stock-minimo').value = p.stock_minimo;
+
+      if (p.imagen) {
+        document.getElementById('preview-imagen').src = '/uploads/' + p.imagen;
+        document.getElementById('imagen-actual').style.display = 'block';
+      } else {
+        document.getElementById('imagen-actual').style.display = 'none';
+      }
+
+      document.getElementById('modal-producto').style.display = 'flex';
+    }
+
+    // GUARDAR PRODUCTO
+    document.getElementById('form-producto').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('producto-id').value;
+      const formData = new FormData();
+
+      formData.append('titulo', document.getElementById('titulo').value);
+      formData.append('categoria', document.getElementById('categoria').value);
+      formData.append('descripcion', document.getElementById('descripcion').value);
+      formData.append('cantidad', document.getElementById('cantidad').value);
+      formData.append('stock_minimo', document.getElementById('stock-minimo').value);
+
+      const imagenFile = document.getElementById('imagen').files[0];
+      if (imagenFile) formData.append('imagen', imagenFile);
+
+      const url = id ? `/api/productos/${id}` : '/api/productos';
+      const method = id ? 'PUT' : 'POST';
+
+      await fetch(url, { method, body: formData });
+      cerrarModal('modal-producto');
+      cargarCategorias();
+      cargarProductos();
+    });
+
+    // ELIMINAR
+    async function eliminarProducto(id, titulo) {
+      if (!confirm(`¿Eliminar "${titulo}"? Esta acción no se puede deshacer.`)) return;
+      await fetch('/api/productos/' + id, { method: 'DELETE' });
+      cargarCategorias();
+      cargarProductos();
+    }
+
+    // MODAL MOVIMIENTO
+    function abrirModalMovimiento(id, titulo) {
+      document.getElementById('mov-producto-id').value = id;
+      document.getElementById('mov-titulo').textContent = `Stock: ${titulo}`;
+      document.getElementById('mov-cantidad').value = 1;
+      document.getElementById('mov-nota').value = '';
+      document.getElementById('modal-movimiento').style.display = 'flex';
+    }
+
+    async function guardarMovimiento() {
+      const producto_id = document.getElementById('mov-producto-id').value;
+      const tipo = document.getElementById('mov-tipo').value;
+      const cantidad = document.getElementById('mov-cantidad').value;
+      const nota = document.getElementById('mov-nota').value;
+
+      const res = await fetch('/api/movimientos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ producto_id, tipo, cantidad, nota })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Error al registrar movimiento');
+        return;
+      }
+
+      cerrarModal('modal-movimiento');
+      cargarProductos();
+    }
+
+    // HISTORIAL
+    async function verHistorial(id, titulo) {
+      const res = await fetch('/api/movimientos/' + id);
+      const movimientos = await res.json();
+
+      document.getElementById('hist-titulo').textContent = `Historial: ${titulo}`;
+      const lista = document.getElementById('historial-lista');
+
+      if (movimientos.length === 0) {
+        lista.innerHTML = '<li style="color:#888">Sin movimientos registrados.</li>';
+      } else {
+        lista.innerHTML = movimientos.map(m => `
+          <li>
+            <span>
+              <span class="${m.tipo === 'entrada' ? 'badge-entrada' : 'badge-salida'}">
+                ${m.tipo === 'entrada' ? '📥 +' : '📤 -'}${m.cantidad}
+              </span>
+              ${m.nota ? `— ${m.nota}` : ''}
+              <small style="color:#aaa; display:block">${m.usuario_nombre || 'Usuario'}</small>
+            </span>
+            <small style="color:#aaa">${new Date(m.fecha).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}</small>
+          </li>
+        `).join('');
+      }
+
+      document.getElementById('modal-historial').style.display = 'flex';
+    }
+
+    function cerrarModal(id) {
+      document.getElementById(id).style.display = 'none';
+    }
+
+    // Cerrar modal clickeando afuera
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.style.display = 'none';
+      });
+    });
+
+    // Buscar y filtrar
+    document.getElementById('buscar').addEventListener('input', cargarProductos);
+    document.getElementById('filtro-categoria').addEventListener('change', cargarProductos);
+
+    // Info usuario
+    async function cargarUsuario() {
+      const res = await fetch('/api/productos');
+      // El usuario viene de la sesión en el backend
+    }
+
+    // Iniciar
+    cargarCategorias();
+    cargarProductos();
+  </script>
+
+</body>
+</html>
