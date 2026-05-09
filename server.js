@@ -4,6 +4,13 @@ const multer = require('multer');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const db = require('./database');
+const fs = require('fs');
+
+// Crear carpeta uploads si no existe
+const uploadsDir = path.join(__dirname, 'public/uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
