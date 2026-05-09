@@ -230,9 +230,129 @@ textarea { resize: vertical; min-height: 80px; }
 .badge-salida { color: #e74c3c; font-weight: bold; }
 
 /* RESPONSIVE */
-@media (max-width: 600px) {
-  .container { padding: 1rem; }
-  .toolbar { flex-direction: column; }
-  .toolbar-left { flex-direction: column; }
-  .toolbar-left input, .toolbar-left select { max-width: 100%; }
+/* ===== RESPONSIVE MÓVIL ===== */
+@media (max-width: 768px) {
+
+  /* NAVBAR */
+  .navbar {
+    padding: 0.8rem 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .navbar h2 {
+    font-size: 1rem;
+  }
+
+  .navbar-right {
+    gap: 0.5rem;
+  }
+
+  /* CONTAINER */
+  .container {
+    padding: 1rem;
+  }
+
+  /* STATS */
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem;
+  }
+
+  .stat-card {
+    padding: 1rem 0.5rem;
+  }
+
+  .stat-card .numero {
+    font-size: 1.8rem;
+  }
+
+  .stat-card .label {
+    font-size: 0.75rem;
+  }
+
+  /* TOOLBAR */
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar-left {
+    flex-direction: column;
+  }
+
+  .toolbar-left input,
+  .toolbar-left select {
+    max-width: 100%;
+  }
+
+  .toolbar > div {
+    width: 100%;
+  }
+
+  .toolbar > div .btn,
+  .toolbar > .btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* GRID DE PRODUCTOS */
+  .productos-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.8rem;
+  }
+
+  .producto-card img,
+  .producto-card .no-img {
+    height: 130px;
+  }
+
+  .producto-info {
+    padding: 0.7rem;
+  }
+
+  .producto-info h3 {
+    font-size: 0.9rem;
+  }
+
+  .producto-actions {
+    flex-wrap: wrap;
+  }
+
+  /* MODAL */
+  .modal {
+    padding: 1.5rem 1rem;
+    margin: 0.5rem;
+    max-height: 95vh;
+  }
+
+  .modal h2 {
+    font-size: 1.1rem;
+  }
+
+  /* TABLA USUARIOS */
+  table {
+    font-size: 0.85rem;
+  }
+
+  table th,
+  table td {
+    padding: 0.6rem 0.5rem;
+  }
+
+  /* Ocultar columna descripción en móvil */
+  table th:nth-child(2),
+  table td:nth-child(2) {
+    display: none;
+  }
+}
+
+@media (max-width: 400px) {
+  .productos-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }

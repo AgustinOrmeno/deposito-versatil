@@ -6,7 +6,7 @@ const bcrypt = require('bcryptjs');
 const db = require('./database');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Configuración de multer para subir imágenes
 const storage = multer.diskStorage({
@@ -48,13 +48,20 @@ if (!usuarioExiste) {
   console.log('Usuario admin creado: admin@deposito.com / admin123');
 }
 
+
 // Rutas
 app.use('/', require('./routes/auth'));
 app.use('/', requireLogin, require('./routes/productos'));
-app.use('/', requireLogin, require('./routes/movimientos.js'));
+app.use('/', requireLogin, require('./routes/movimientos'));
+app.use('/', requireLogin, require('./routes/usuarios'));
 
 // Redirigir raíz al dashboard
 app.get('/', requireLogin, (req, res) => res.redirect('/dashboard'));
+
+// Ruta para obtener datos de sesión
+app.get('/api/sesion', requireLogin, (req, res) => {
+  res.json(req.session.user);
+});
 
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
